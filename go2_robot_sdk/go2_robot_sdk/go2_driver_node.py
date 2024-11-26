@@ -70,6 +70,8 @@ class RobotBaseNode(Node):
             'ROBOT_TOKEN', os.getenv('GO2_TOKEN', '')))
         self.declare_parameter('conn_type', os.getenv(
             'CONN_TYPE', os.getenv('CONN_TYPE', '')))
+        self.declare_parameter('camera_only', os.getenv(
+            'CAMERA_ONLY', os.getenv('CAMERA_ONLY', '')))
 
         self.robot_ip = self.get_parameter(
             'robot_ip').get_parameter_value().string_value
@@ -78,7 +80,11 @@ class RobotBaseNode(Node):
         self.robot_ip_lst = self.robot_ip.replace(" ", "").split(",")
         self.conn_type = self.get_parameter(
             'conn_type').get_parameter_value().string_value
-
+        self.camera_only = self.get_parameter(
+            'camera_only').get_parameter_value().string_value
+        if self.camera_only=='true':
+            self.camera_only = True
+        
         self.conn_mode = "single" if len(self.robot_ip_lst) == 1 else "multi"
 
         self.get_logger().info(f"Received ip list: {self.robot_ip_lst}")
@@ -91,8 +97,9 @@ class RobotBaseNode(Node):
 
         self.joint_pub = []
         self.go2_state_pub = []
-        self.go2_lidar_pub = []
-        self.go2_odometry_pub = []
+        if not self.camera_only:
+            self.go2_lidar_pub = []
+            self.go2_odometry_pub = []
         self.imu_pub = []
         self.img_pub = []
         self.camera_info_pub = []
@@ -102,10 +109,11 @@ class RobotBaseNode(Node):
                 JointState, 'joint_states', qos_profile))
             self.go2_state_pub.append(self.create_publisher(
                 Go2State, 'go2_states', qos_profile))
-            self.go2_lidar_pub.append(self.create_publisher(
-                PointCloud2, 'point_cloud2', qos_profile))
-            self.go2_odometry_pub.append(
-                self.create_publisher(Odometry, 'odom', qos_profile))
+            if not self.camera_only:
+                self.go2_lidar_pub.append(self.create_publisher(
+                    PointCloud2, 'point_cloud2', qos_profile))
+                self.go2_odometry_pub.append(
+                    self.create_publisher(Odometry, 'odom', qos_profile))
             self.imu_pub.append(self.create_publisher(IMU, 'imu', qos_profile))
             self.img_pub.append(self.create_publisher(Image, 'camera/image_raw', qos_profile))
             self.camera_info_pub.append(self.create_publisher(CameraInfo, 'camera/camera_info', qos_profile))
@@ -116,10 +124,11 @@ class RobotBaseNode(Node):
                     JointState, f'robot{i}/joint_states', qos_profile))
                 self.go2_state_pub.append(self.create_publisher(
                     Go2State, f'robot{i}/go2_states', qos_profile))
-                self.go2_lidar_pub.append(self.create_publisher(
-                    PointCloud2, f'robot{i}/point_cloud2', qos_profile))
-                self.go2_odometry_pub.append(self.create_publisher(
-                    Odometry, f'robot{i}/odom', qos_profile))
+                if not self.camera_only:
+                    self.go2_lidar_pub.append(self.create_publisher(
+                        PointCloud2, f'robot{i}/point_cloud2', qos_profile))
+                    self.go2_odometry_pub.append(self.create_publisher(
+                        Odometry, f'robot{i}/odom', qos_profile))
                 self.imu_pub.append(self.create_publisher(
                     IMU, f'robot{i}/imu', qos_profile))
                 self.img_pub.append(self.create_publisher(
@@ -133,10 +142,12 @@ class RobotBaseNode(Node):
         self.camera_info = load_camera_info()
 
         self.robot_cmd_vel = {}
-        self.robot_odom = {}
+        if not self.camera_only:
+            self.robot_odom = {}
+        self.robot_lidar = {}
+        
         self.robot_low_cmd = {}
         self.robot_sport_state = {}
-        self.robot_lidar = {}
 
         self.joy_state = Joy()
 
@@ -167,26 +178,28 @@ class RobotBaseNode(Node):
                 'lowstate',
                 self.publish_joint_state_cyclonedds,
                 qos_profile)
-
-            self.create_subscription(
-                PoseStamped,
-                '/utlidar/robot_pose',
-                self.publish_body_poss_cyclonedds,
-                qos_profile)
-
-            self.create_subscription(
-                PointCloud2,
-                '/utlidar/cloud',
-                self.publish_lidar_cyclonedds,
-                qos_profile)
+            if not self.camera_only:
+                self.create_subscription(
+                    PoseStamped,
+                    '/utlidar/robot_pose',
+                    self.publish_body_poss_cyclonedds,
+                    qos_profile)
+            
+                self.create_subscription(
+                    PointCloud2,
+                    '/utlidar/cloud',
+                    self.publish_lidar_cyclonedds,
+                    qos_profile)
 
         self.timer = self.create_timer(0.1, self.timer_callback)
-        self.timer_lidar = self.create_timer(0.5, self.timer_callback_lidar)
+        if not self.camera_only:
+            self.timer_lidar = self.create_timer(0.5, self.timer_callback_lidar)
 
     def timer_callback(self):
         if self.conn_type == 'webrtc':
-            self.publish_odom_webrtc()
-            self.publish_odom_topic_webrtc()
+            if not self.camera_only:
+                self.publish_odom_webrtc()
+                self.publish_odom_topic_webrtc()
             self.publish_robot_state_webrtc()
             self.publish_joint_state_webrtc()
 
