@@ -295,6 +295,47 @@ If you are running ROS2 under WSL2 - you may need to configure Joystick\Gamepad 
     0 : 030000005e040000120b000007050000 :    true :  false : Xbox Series X Controller
     ```
 
+
+## Teleop Keyboard with Obstacle Avoidance
+
+This module enables keyboard-based teleoperation with real-time obstacle avoidance. It allows users to steer the robot using their keyboard while automatically avoiding obstacles in the environment.
+
+### How to Use
+
+Make sure the project is fully built and sourced:
+
+```bash
+source install/setup.bash
+````
+
+Open **three separate terminals** and run the following in order:
+
+1. **Launch the base robot system:**
+
+   ```bash
+   ros2 launch go2_robot_sdk robot.launch.py
+   ```
+
+2. **Start the obstacle avoidance node:**
+
+   ```bash
+   ros2 run obstacle_avoider obstacle_avoider
+   ```
+
+3. **Run the keyboard teleoperation node with remapped velocity topic:**
+
+   ```bash
+   ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -r cmd_vel:=/cmd_vel_input
+   ```
+
+### Notes
+
+* The `obstacle_avoider` node listens to `/cmd_vel_input` and publishes safe velocity commands to `/cmd_vel`.
+* Ensure that the robot's sensors (e.g., LIDAR) are active and streaming data for effective obstacle detection.
+* Make sure youre wifi is good.
+* This setup is especially useful for navigating tight or cluttered spaces where manual joystick control may be less precise.
+
+
 ## Thanks
 
 Special thanks to:
